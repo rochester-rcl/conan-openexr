@@ -32,25 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////
 
-#include "previewImageExamples.h"
-#include "testMatrix.h"
-#include <iostream>
-#include <stdexcept>
 
 
-int
-main (int argc, char *argv[])
-{
-    try
-    {
-	previewImageExamples();
-	testMatrix();
-    }
-    catch (const std::exception &exc)
-    {
-	std::cerr << exc.what() << std::endl;
-	return 1;
-    }
 
-    return 0;
-}
+void testMatrix ();

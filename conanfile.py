@@ -1,4 +1,4 @@
-from conans import ConanFile, AutoToolsBuildEnvironment, tools
+from conans import ConanFile, CMake, tools
 import os
 
 
@@ -6,52 +6,61 @@ class OpenEXRConan(ConanFile):
     name = "OpenEXR"
     version = "2.3.0"
     license = "BSD"
-    requires = ("IlmBase/2.3.0@jromphf/stable"
-                , "zlib/1.2.8@conan/stable"
-                )
+    requires = ("zlib/1.2.8@conan/stable")
     settings = "os", "compiler", "build_type", "arch"
     options = {"shared": [True, False], "namespace_versioning": [True, False]}
-    default_options = "shared=False", "namespace_versioning=True"
-    default_options = "shared=False", "namespace_versioning=True"
+    default_options = "shared=True", "namespace_versioning=True"
+    generators = "cmake"
 
-    def configure(self):
-        self.options["IlmBase"].namespace_versioning = self.options.namespace_versioning
-        self.options["IlmBase"].shared = self.options.shared
+    # TODO use master branch on git because the release version is clearly broken
+    # - also need to build both OpenEXR and IlmBase in one go because that's broken too
 
     def source(self):
-        tools.download("https://github.com/openexr/openexr/releases/download/v{}/openexr-{}.tar.gz".format(self.version,
-                                                                                                           self.version),
-                       "openexr.tar.gz")
-        tools.untargz("openexr.tar.gz")
-        os.unlink("openexr.tar.gz")
+        # TODO use master branch of git because releases are no good with CMake
+        self.run("git clone https://github.com/openexr/openexr.git openexr")
+        tools.replace_in_file("{}/openexr/CMakeLists.txt".format(self.source_folder),
+                              "project(OpenEXR VERSION ${OPENEXR_VERSION})",
+                              """project(OpenEXR VERSION ${OPENEXR_VERSION})
+include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
+conan_basic_setup()
+set (CMAKE_CXX_STANDARD 11)""")
 
     def build(self):
-        env_build = AutoToolsBuildEnvironment(self)
-        if "fPIC" in self.options.fields:
-            env_build.fpic = self.options.fPIC
-        config_dir = "{}/openexr-{}".format(self.source_folder, self.version)
-        ilmbase_root = "--with-ilmbase-prefix={}".format(self.deps_cpp_info["IlmBase"].rootpath)
-        env_build.configure(configure_dir=config_dir, args=[ilmbase_root])
-        env_build.install()
+        cmake = CMake(self)
+
+        cmake.definitions.update(
+            {"OPENEXR_BUILD_ILMBASE": True,
+             "OPENEXR_BUILD_OPENEXR": True,
+             "OPENEXR_BUILD_SHARED": self.options.shared,
+             "OPENEXR_BUILD_STATIC": not self.options.shared,
+             "OPENEXR_BUILD_PYTHON_LIBS": False,
+             "CMAKE_PREFIX_PATH": self.deps_cpp_info["zlib"].rootpath,
+             })
+
+        cmake.configure(source_dir="{}/openexr".format(self.source_folder))
+        cmake.build(target="install")
 
     def package(self):
-        self.copy("Imf*.h", dst="include/OpenEXR", src="openexr-{}/IlmImf".format(self.version), keep_path=False)
-        self.copy("Imf*.h", dst="include/OpenEXR", src="openexr-{}/IlmImfUtil".format(self.version), keep_path=False)
-        self.copy("OpenEXRConfig.h", dst="include/OpenEXR", src="config", keep_path=False)
+        self.copy("*.h", dst="include", src="package/include".format(self.version), keep_path=True)
 
-        self.copy("*IlmImf*.lib", dst="lib", src=".", keep_path=False)
-        self.copy("*IlmImf*.a", dst="lib", src=".", keep_path=False)
-        self.copy("*IlmImf*.so", dst="lib", src=".", keep_path=False)
-        self.copy("*IlmImf*.so.*", dst="lib", src=".", keep_path=False)
-        self.copy("*IlmImf*.dylib*", dst="lib", src=".", keep_path=False)
+        self.copy("*.lib", dst="lib", src=".", keep_path=False)
+        self.copy("*.a", dst="lib", src=".", keep_path=False)
+        self.copy("*.so", dst="lib", src=".", keep_path=False)
+        self.copy("*.so.*", dst="lib", src=".", keep_path=False)
+        self.copy("*.dylib*", dst="lib", src=".", keep_path=False)
 
-        self.copy("*IlmImf*.dll", dst="bin", src="bin", keep_path=False)
-        self.copy("exr*", dst="bin", src="bin", keep_path=False)
+        self.copy("*.dll", dst="bin", src="bin", keep_path=False)
 
     def package_info(self):
-
+        major, minor, patch = self.version.split(".")
         if self.options.shared and self.settings.os == "Windows":
             self.cpp_info.defines.append("OPENEXR_DLL")
         self.cpp_info.bindirs = ["bin"]
         self.cpp_info.includedirs = ['include', 'include/OpenEXR']
-        self.cpp_info.libs = ["IlmImf", "IlmImfUtil"]
+        libs = ["IlmImf", "IlmImfUtil", "Imath", "IexMath", "Half", "Iex",
+                "IlmThread"]
+
+        def set_version(lib):
+            return "{}-{}_{}".format(lib, major, minor)
+
+        self.cpp_info.libs = list(map(set_version, libs))
