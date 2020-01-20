@@ -4,7 +4,7 @@ import os
 
 class OpenEXRConan(ConanFile):
     name = "OpenEXR"
-    version = "2.3.0"
+    version = "2.4.0"
     license = "BSD"
     requires = ("zlib/1.2.8@conan/stable")
     settings = "os", "compiler", "build_type", "arch"
@@ -18,9 +18,10 @@ class OpenEXRConan(ConanFile):
     def source(self):
         # TODO use master branch of git because releases are no good with CMake
         self.run("git clone https://github.com/openexr/openexr.git openexr")
+        # self.run("cd openexr && git checkout release/2.3".format(self.version))
         tools.replace_in_file("{}/openexr/CMakeLists.txt".format(self.source_folder),
-                              "project(OpenEXR VERSION ${OPENEXR_VERSION})",
-                              """project(OpenEXR VERSION ${OPENEXR_VERSION})
+                              "project(OpenEXRMetaProject)",
+                              """project(OpenEXRMetaProject)
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 conan_basic_setup()
 set (CMAKE_CXX_STANDARD 11)""")
@@ -34,6 +35,7 @@ set (CMAKE_CXX_STANDARD 11)""")
              "OPENEXR_BUILD_SHARED": self.options.shared,
              "OPENEXR_BUILD_STATIC": not self.options.shared,
              "OPENEXR_BUILD_PYTHON_LIBS": False,
+             "OPENEXR_NAMESPACE_VERSIONING": False,
              "CMAKE_PREFIX_PATH": self.deps_cpp_info["zlib"].rootpath,
              })
 
