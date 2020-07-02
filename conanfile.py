@@ -16,10 +16,14 @@ class OpenEXRConan(ConanFile):
     # - also need to build both OpenEXR and IlmBase in one go because that's broken too
 
     def source(self):
-        # TODO use master branch of git because releases are no good with CMake
-        self.run("git clone https://github.com/openexr/openexr.git openexr")
+        tools.download(
+            "https://github.com/AcademySoftwareFoundation/openexr/archive/v{}.tar.gz".format(self.version),
+            "openexr.tar.gz"
+        )
+        tools.untargz('openexr.tar.gz')
+        os.unlink('openexr.tar.gz')
         # self.run("cd openexr && git checkout release/2.3".format(self.version))
-        tools.replace_in_file("{}/openexr/CMakeLists.txt".format(self.source_folder),
+        tools.replace_in_file("{}/openexr-{}/CMakeLists.txt".format(self.source_folder, self.version),
                               "project(OpenEXRMetaProject)",
                               """project(OpenEXRMetaProject)
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
@@ -39,7 +43,7 @@ set (CMAKE_CXX_STANDARD 11)""")
              "CMAKE_PREFIX_PATH": self.deps_cpp_info["zlib"].rootpath,
              })
 
-        cmake.configure(source_dir="{}/openexr".format(self.source_folder))
+        cmake.configure(source_dir="{}/openexr-{}".format(self.source_folder, self.version))
         cmake.build(target="install")
 
     def package(self):
