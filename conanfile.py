@@ -8,6 +8,7 @@ class OpenEXRConan(ConanFile):
     license = "BSD"
     requires = ("zlib/1.2.8@conan/stable")
     settings = "os", "compiler", "build_type", "arch"
+    url = "https://github.com/rochester-rcl/conan-openexr"
     options = {"shared": [True, False], "namespace_versioning": [True, False]}
     default_options = "shared=True", "namespace_versioning=True"
     generators = "cmake"
